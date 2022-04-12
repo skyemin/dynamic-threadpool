@@ -90,66 +90,71 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
     protected ThreadPoolExecutor fillPoolAndRegister(DynamicThreadPoolWrapper dynamicThreadPoolWrap) {
         String threadPoolId = dynamicThreadPoolWrap.getTpId();
         ThreadPoolExecutor newDynamicPoolExecutor = dynamicThreadPoolWrap.getExecutor();
-
-        ExecutorProperties executorProperties = bootstrapCoreProperties.getExecutors()
-                .stream()
-                .filter(each -> Objects.equals(threadPoolId, each.getThreadPoolId()))
-                .findFirst()
-                .orElse(null);
-        if (executorProperties != null) {
-            try {
-                // 使用相关参数创建线程池
-                BlockingQueue workQueue = QueueTypeEnum.createBlockingQueue(executorProperties.getBlockingQueue(), executorProperties.getQueueCapacity());
-                String threadNamePrefix = executorProperties.getThreadNamePrefix();
-                newDynamicPoolExecutor = ThreadPoolBuilder.builder()
-                        .dynamicPool()
-                        .workQueue(workQueue)
-                        .threadFactory(StringUtil.isNotBlank(threadNamePrefix) ? threadNamePrefix : threadPoolId)
-                        .executeTimeOut(Optional.ofNullable(executorProperties.getExecuteTimeOut()).orElse(0L))
-                        .poolThreadSize(executorProperties.getCorePoolSize(), executorProperties.getMaximumPoolSize())
-                        .keepAliveTime(executorProperties.getKeepAliveTime(), TimeUnit.SECONDS)
-                        .rejected(RejectedTypeEnum.createPolicy(executorProperties.getRejectedHandler()))
-                        .allowCoreThreadTimeOut(executorProperties.getAllowCoreThreadTimeOut())
-                        .build();
-            } catch (Exception ex) {
-                log.error("Failed to initialize thread pool configuration. error :: {}", ex);
-            } finally {
-                if (Objects.isNull(dynamicThreadPoolWrap.getExecutor())) {
-                    dynamicThreadPoolWrap.setExecutor(CommonDynamicThreadPool.getInstance(threadPoolId));
+        ExecutorProperties executorProperties = null;
+        if (null != bootstrapCoreProperties.getExecutors()) {
+            executorProperties = bootstrapCoreProperties.getExecutors()
+                    .stream()
+                    .filter(each -> Objects.equals(threadPoolId, each.getThreadPoolId()))
+                    .findFirst()
+                    .orElse(null);
+            if (executorProperties != null) {
+                try {
+                    // 使用相关参数创建线程池
+                    BlockingQueue workQueue = QueueTypeEnum.createBlockingQueue(executorProperties.getBlockingQueue(), executorProperties.getQueueCapacity());
+                    String threadNamePrefix = executorProperties.getThreadNamePrefix();
+                    newDynamicPoolExecutor = ThreadPoolBuilder.builder()
+                            .dynamicPool()
+                            .workQueue(workQueue)
+                            .threadFactory(StringUtil.isNotBlank(threadNamePrefix) ? threadNamePrefix : threadPoolId)
+                            .executeTimeOut(Optional.ofNullable(executorProperties.getExecuteTimeOut()).orElse(0L))
+                            .poolThreadSize(executorProperties.getCorePoolSize(), executorProperties.getMaximumPoolSize())
+                            .keepAliveTime(executorProperties.getKeepAliveTime(), TimeUnit.SECONDS)
+                            .rejected(RejectedTypeEnum.createPolicy(executorProperties.getRejectedHandler()))
+                            .allowCoreThreadTimeOut(executorProperties.getAllowCoreThreadTimeOut())
+                            .build();
+                } catch (Exception ex) {
+                    log.error("Failed to initialize thread pool configuration. error :: {}", ex);
+                } finally {
+                    if (Objects.isNull(dynamicThreadPoolWrap.getExecutor())) {
+                        dynamicThreadPoolWrap.setExecutor(CommonDynamicThreadPool.getInstance(threadPoolId));
+                    }
+                    dynamicThreadPoolWrap.setInitFlag(Boolean.TRUE);
                 }
-
-                dynamicThreadPoolWrap.setInitFlag(Boolean.TRUE);
             }
+
+            if (dynamicThreadPoolWrap.getExecutor() instanceof AbstractDynamicExecutorSupport) {
+                // 设置动态线程池增强参数
+                ThreadPoolNotifyAlarm notify = executorProperties.getNotify();
+                boolean isAlarm = Optional.ofNullable(notify)
+                        .map(each -> each.getIsAlarm())
+                        .orElseGet(() -> bootstrapCoreProperties.getAlarm() != null ? bootstrapCoreProperties.getAlarm() : true);
+                int activeAlarm = Optional.ofNullable(notify)
+                        .map(each -> each.getActiveAlarm())
+                        .orElseGet(() -> bootstrapCoreProperties.getActiveAlarm() != null ? bootstrapCoreProperties.getActiveAlarm() : 80);
+                int capacityAlarm = Optional.ofNullable(notify)
+                        .map(each -> each.getActiveAlarm())
+                        .orElseGet(() -> bootstrapCoreProperties.getCapacityAlarm() != null ? bootstrapCoreProperties.getCapacityAlarm() : 80);
+                int interval = Optional.ofNullable(notify)
+                        .map(each -> each.getInterval())
+                        .orElseGet(() -> bootstrapCoreProperties.getAlarmInterval() != null ? bootstrapCoreProperties.getAlarmInterval() : 5);
+                String receive = Optional.ofNullable(notify)
+                        .map(each -> each.getReceive())
+                        .orElseGet(() -> bootstrapCoreProperties.getReceive() != null ? bootstrapCoreProperties.getReceive() : null);
+                ThreadPoolNotifyAlarm threadPoolNotifyAlarm = new ThreadPoolNotifyAlarm(isAlarm, activeAlarm, capacityAlarm);
+                threadPoolNotifyAlarm.setInterval(interval);
+                threadPoolNotifyAlarm.setReceive(receive);
+                GlobalNotifyAlarmManage.put(threadPoolId, threadPoolNotifyAlarm);
+
+                TaskDecorator taskDecorator = ((DynamicThreadPoolExecutor) dynamicThreadPoolWrap.getExecutor()).getTaskDecorator();
+                ((DynamicThreadPoolExecutor) newDynamicPoolExecutor).setTaskDecorator(taskDecorator);
+
+                long awaitTerminationMillis = ((DynamicThreadPoolExecutor) dynamicThreadPoolWrap.getExecutor()).awaitTerminationMillis;
+                boolean waitForTasksToCompleteOnShutdown = ((DynamicThreadPoolExecutor) dynamicThreadPoolWrap.getExecutor()).waitForTasksToCompleteOnShutdown;
+                ((DynamicThreadPoolExecutor) newDynamicPoolExecutor).setSupportParam(awaitTerminationMillis, waitForTasksToCompleteOnShutdown);
+            }
+
+            dynamicThreadPoolWrap.setExecutor(newDynamicPoolExecutor);
         }
-
-        // 设置动态线程池增强参数
-        ThreadPoolNotifyAlarm notify = Optional.ofNullable(executorProperties)
-                .map(each -> each.getNotify())
-                .orElseGet(() -> {
-                    ThreadPoolNotifyAlarm threadPoolNotifyAlarm = new ThreadPoolNotifyAlarm(true, 80, 80);
-                    threadPoolNotifyAlarm.setInterval(2);
-                    return threadPoolNotifyAlarm;
-                });
-        if (dynamicThreadPoolWrap.getExecutor() instanceof AbstractDynamicExecutorSupport) {
-            ThreadPoolNotifyAlarm threadPoolNotifyAlarm = new ThreadPoolNotifyAlarm(
-                    notify.getIsAlarm(),
-                    notify.getCapacityAlarm(),
-                    notify.getActiveAlarm()
-            );
-
-            threadPoolNotifyAlarm.setInterval(notify.getInterval());
-            threadPoolNotifyAlarm.setReceives(notify.getReceives());
-            GlobalNotifyAlarmManage.put(threadPoolId, threadPoolNotifyAlarm);
-
-            TaskDecorator taskDecorator = ((DynamicThreadPoolExecutor) dynamicThreadPoolWrap.getExecutor()).getTaskDecorator();
-            ((DynamicThreadPoolExecutor) newDynamicPoolExecutor).setTaskDecorator(taskDecorator);
-
-            long awaitTerminationMillis = ((DynamicThreadPoolExecutor) dynamicThreadPoolWrap.getExecutor()).awaitTerminationMillis;
-            boolean waitForTasksToCompleteOnShutdown = ((DynamicThreadPoolExecutor) dynamicThreadPoolWrap.getExecutor()).waitForTasksToCompleteOnShutdown;
-            ((DynamicThreadPoolExecutor) newDynamicPoolExecutor).setSupportParam(awaitTerminationMillis, waitForTasksToCompleteOnShutdown);
-        }
-
-        dynamicThreadPoolWrap.setExecutor(newDynamicPoolExecutor);
 
         GlobalThreadPoolManage.registerPool(dynamicThreadPoolWrap.getTpId(), dynamicThreadPoolWrap);
         GlobalCoreThreadPoolManage.register(

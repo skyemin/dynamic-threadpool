@@ -5,13 +5,9 @@ import cn.hippo4j.common.model.PoolParameterInfo;
 import cn.hippo4j.common.model.PoolRunStateInfo;
 import cn.hippo4j.common.web.base.Result;
 import cn.hippo4j.common.web.base.Results;
-import cn.hippo4j.common.web.executor.WebThreadPoolHandlerChoose;
-import cn.hippo4j.starter.handler.web.WebThreadPoolRunStateHandler;
-import cn.hippo4j.common.web.executor.WebThreadPoolService;
+import cn.hippo4j.core.executor.web.WebThreadPoolHandlerChoose;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.concurrent.Executor;
 
 /**
  * Web thread pool controller.
@@ -28,28 +24,21 @@ public class WebThreadPoolController {
 
     private final WebThreadPoolHandlerChoose webThreadPoolServiceChoose;
 
-    private final WebThreadPoolRunStateHandler webThreadPoolRunStateHandler;
-
     @GetMapping("/web/base/info")
     public Result<PoolBaseInfo> getPoolBaseState() {
-        WebThreadPoolService webThreadPoolService = webThreadPoolServiceChoose.choose();
-        Executor webThreadPool = webThreadPoolService.getWebThreadPool();
-        PoolBaseInfo poolBaseInfo = webThreadPoolRunStateHandler.simpleInfo(webThreadPool);
+        PoolBaseInfo poolBaseInfo = webThreadPoolServiceChoose.choose().simpleInfo();
         return Results.success(poolBaseInfo);
     }
 
     @GetMapping("/web/run/state")
     public Result<PoolRunStateInfo> getPoolRunState() {
-        WebThreadPoolService webThreadPoolService = webThreadPoolServiceChoose.choose();
-        Executor webThreadPool = webThreadPoolService.getWebThreadPool();
-        PoolRunStateInfo poolRunState = webThreadPoolRunStateHandler.getPoolRunState(null, webThreadPool);
+        PoolRunStateInfo poolRunState = webThreadPoolServiceChoose.choose().getWebRunStateInfo();
         return Results.success(poolRunState);
     }
 
     @PostMapping("/web/update/pool")
     public Result<Void> updateWebThreadPool(@RequestBody PoolParameterInfo poolParameterInfo) {
-        WebThreadPoolService webThreadPoolService = webThreadPoolServiceChoose.choose();
-        webThreadPoolService.updateWebThreadPool(poolParameterInfo);
+        webThreadPoolServiceChoose.choose().updateWebThreadPool(poolParameterInfo);
         return Results.success();
     }
 

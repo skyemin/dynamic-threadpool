@@ -6,12 +6,14 @@ import cn.hippo4j.common.model.PoolParameter;
 import cn.hippo4j.common.model.PoolParameterInfo;
 import cn.hippo4j.common.notify.HippoBaseSendMessageService;
 import cn.hippo4j.common.notify.NotifyConfigDTO;
+import cn.hippo4j.common.notify.ThreadPoolNotifyAlarm;
 import cn.hippo4j.common.notify.request.ChangeParameterNotifyRequest;
-import cn.hippo4j.common.web.executor.WebThreadPoolHandlerChoose;
-import cn.hippo4j.common.web.executor.WebThreadPoolService;
+import cn.hippo4j.core.executor.web.WebThreadPoolHandlerChoose;
+import cn.hippo4j.core.executor.web.WebThreadPoolService;
 import cn.hippo4j.core.executor.DynamicThreadPoolExecutor;
 import cn.hippo4j.core.executor.DynamicThreadPoolWrapper;
 import cn.hippo4j.core.executor.ThreadPoolNotifyAlarmHandler;
+import cn.hippo4j.core.executor.manage.GlobalNotifyAlarmManage;
 import cn.hippo4j.core.executor.manage.GlobalThreadPoolManage;
 import cn.hippo4j.core.executor.support.*;
 import cn.hippo4j.core.proxy.RejectedProxyUtil;
@@ -76,22 +78,50 @@ public abstract class AbstractCoreThreadPoolDynamicRefresh implements ThreadPool
     }
 
     /**
+     * register notify alarm manage
+     */
+    public void registerNotifyAlarmManage() {
+        bootstrapCoreProperties.getExecutors().forEach(executorProperties -> {
+            ThreadPoolNotifyAlarm threadPoolNotifyAlarm = new ThreadPoolNotifyAlarm(
+                    executorProperties.getNotify().getIsAlarm(),
+                    executorProperties.getNotify().getCapacityAlarm(),
+                    executorProperties.getNotify().getActiveAlarm()
+            );
+
+            threadPoolNotifyAlarm.setInterval(executorProperties.getNotify().getInterval());
+            threadPoolNotifyAlarm.setReceives(executorProperties.receives());
+            GlobalNotifyAlarmManage.put(executorProperties.getThreadPoolId(), threadPoolNotifyAlarm);
+        });
+    }
+
+    /**
      * Refresh web executor.
      *
      * @param bindableCoreProperties
      */
     private void refreshWebExecutor(BootstrapCoreProperties bindableCoreProperties) {
-        WebThreadPoolHandlerChoose webThreadPoolHandlerChoose = ApplicationContextHolder.getBean(WebThreadPoolHandlerChoose.class);
-        WebThreadPoolService webThreadPoolService = webThreadPoolHandlerChoose.choose();
+        boolean isNullFlag = bindableCoreProperties.getJetty() == null
+                || bindableCoreProperties.getUndertow() == null
+                || bindableCoreProperties.getTomcat() == null;
+        if (isNullFlag) {
+            return;
+        }
 
-        PoolParameterInfo nowParameter = buildWebPoolParameter(bindableCoreProperties);
-        if (nowParameter != null) {
-            PoolParameter beforeParameter = webThreadPoolService.getWebThreadPoolParameter();
-            if (!Objects.equals(beforeParameter.getCoreSize(), nowParameter.getCoreSize())
-                    || !Objects.equals(beforeParameter.getMaxSize(), nowParameter.getMaxSize())
-                    || !Objects.equals(beforeParameter.getMaxSize(), nowParameter.getMaxSize())) {
-                webThreadPoolService.updateWebThreadPool(nowParameter);
+        try {
+            PoolParameterInfo nowParameter = buildWebPoolParameter(bindableCoreProperties);
+            if (nowParameter != null) {
+                WebThreadPoolHandlerChoose webThreadPoolHandlerChoose = ApplicationContextHolder.getBean(WebThreadPoolHandlerChoose.class);
+                WebThreadPoolService webThreadPoolService = webThreadPoolHandlerChoose.choose();
+
+                PoolParameter beforeParameter = webThreadPoolService.getWebThreadPoolParameter();
+                if (!Objects.equals(beforeParameter.getCoreSize(), nowParameter.getCoreSize())
+                        || !Objects.equals(beforeParameter.getMaxSize(), nowParameter.getMaxSize())
+                        || !Objects.equals(beforeParameter.getKeepAliveTime(), nowParameter.getKeepAliveTime())) {
+                    webThreadPoolService.updateWebThreadPool(nowParameter);
+                }
             }
+        } catch (Exception ex) {
+            log.error("Failed to modify web thread pool.", ex);
         }
     }
 
@@ -128,29 +158,11 @@ public abstract class AbstractCoreThreadPoolDynamicRefresh implements ThreadPool
             if (!checkConsistency(threadPoolId, properties)) {
                 continue;
             }
-
+            // refresh executor pool
             dynamicRefreshPool(threadPoolId, properties);
-
+            // old properties
             ExecutorProperties beforeProperties = GlobalCoreThreadPoolManage.getProperties(properties.getThreadPoolId());
-            ChangeParameterNotifyRequest changeRequest = new ChangeParameterNotifyRequest();
-            changeRequest.setBeforeCorePoolSize(beforeProperties.getCorePoolSize());
-            changeRequest.setBeforeMaximumPoolSize(beforeProperties.getMaximumPoolSize());
-            changeRequest.setBeforeAllowsCoreThreadTimeOut(beforeProperties.getAllowCoreThreadTimeOut());
-            changeRequest.setBeforeKeepAliveTime(beforeProperties.getKeepAliveTime());
-            changeRequest.setBlockingQueueName(beforeProperties.getBlockingQueue());
-            changeRequest.setBeforeQueueCapacity(beforeProperties.getQueueCapacity());
-            changeRequest.setBeforeRejectedName(beforeProperties.getRejectedHandler());
-            changeRequest.setBeforeExecuteTimeOut(beforeProperties.getExecuteTimeOut());
-            changeRequest.setThreadPoolId(beforeProperties.getThreadPoolId());
-
-            changeRequest.setNowCorePoolSize(properties.getCorePoolSize());
-            changeRequest.setNowMaximumPoolSize(properties.getMaximumPoolSize());
-            changeRequest.setNowAllowsCoreThreadTimeOut(properties.getAllowCoreThreadTimeOut());
-            changeRequest.setNowKeepAliveTime(properties.getKeepAliveTime());
-            changeRequest.setNowQueueCapacity(properties.getQueueCapacity());
-            changeRequest.setNowRejectedName(properties.getRejectedHandler());
-            changeRequest.setNowExecuteTimeOut(properties.getExecuteTimeOut());
-
+            // refresh executor properties
             GlobalCoreThreadPoolManage.refresh(threadPoolId, properties);
             log.info(
                     "[{}] Changed thread pool. " +
@@ -174,11 +186,39 @@ public abstract class AbstractCoreThreadPoolDynamicRefresh implements ThreadPool
             );
 
             try {
-                threadPoolNotifyAlarmHandler.sendPoolConfigChange(changeRequest);
+                threadPoolNotifyAlarmHandler.sendPoolConfigChange(newChangeRequest(beforeProperties,properties));
             } catch (Throwable ex) {
                 log.error("Failed to send change notice. Message :: {}", ex.getMessage());
             }
         }
+    }
+
+    /**
+     * construct ChangeParameterNotifyRequest instance
+     *
+     * @param beforeProperties old properties
+     * @param properties       new properties
+     * @return instance
+     */
+    private ChangeParameterNotifyRequest newChangeRequest(ExecutorProperties beforeProperties, ExecutorProperties properties) {
+        ChangeParameterNotifyRequest changeRequest = new ChangeParameterNotifyRequest();
+        changeRequest.setBeforeCorePoolSize(beforeProperties.getCorePoolSize());
+        changeRequest.setBeforeMaximumPoolSize(beforeProperties.getMaximumPoolSize());
+        changeRequest.setBeforeAllowsCoreThreadTimeOut(beforeProperties.getAllowCoreThreadTimeOut());
+        changeRequest.setBeforeKeepAliveTime(beforeProperties.getKeepAliveTime());
+        changeRequest.setBlockingQueueName(beforeProperties.getBlockingQueue());
+        changeRequest.setBeforeQueueCapacity(beforeProperties.getQueueCapacity());
+        changeRequest.setBeforeRejectedName(beforeProperties.getRejectedHandler());
+        changeRequest.setBeforeExecuteTimeOut(beforeProperties.getExecuteTimeOut());
+        changeRequest.setThreadPoolId(beforeProperties.getThreadPoolId());
+        changeRequest.setNowCorePoolSize(properties.getCorePoolSize());
+        changeRequest.setNowMaximumPoolSize(properties.getMaximumPoolSize());
+        changeRequest.setNowAllowsCoreThreadTimeOut(properties.getAllowCoreThreadTimeOut());
+        changeRequest.setNowKeepAliveTime(properties.getKeepAliveTime());
+        changeRequest.setNowQueueCapacity(properties.getQueueCapacity());
+        changeRequest.setNowRejectedName(properties.getRejectedHandler());
+        changeRequest.setNowExecuteTimeOut(properties.getExecuteTimeOut());
+        return changeRequest;
     }
 
     /**
@@ -216,12 +256,13 @@ public abstract class AbstractCoreThreadPoolDynamicRefresh implements ThreadPool
         ExecutorProperties beforeProperties = GlobalCoreThreadPoolManage.getProperties(properties.getThreadPoolId());
 
         ThreadPoolExecutor executor = GlobalThreadPoolManage.getExecutorService(threadPoolId).getExecutor();
-        if (!Objects.equals(beforeProperties.getCorePoolSize(), properties.getCorePoolSize())) {
-            executor.setCorePoolSize(properties.getCorePoolSize());
-        }
 
         if (!Objects.equals(beforeProperties.getMaximumPoolSize(), properties.getMaximumPoolSize())) {
             executor.setMaximumPoolSize(properties.getMaximumPoolSize());
+        }
+
+        if (!Objects.equals(beforeProperties.getCorePoolSize(), properties.getCorePoolSize())) {
+            executor.setCorePoolSize(properties.getCorePoolSize());
         }
 
         if (!Objects.equals(beforeProperties.getAllowCoreThreadTimeOut(), properties.getAllowCoreThreadTimeOut())) {

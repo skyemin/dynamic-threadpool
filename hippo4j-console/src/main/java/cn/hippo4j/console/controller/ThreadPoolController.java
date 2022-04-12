@@ -2,6 +2,8 @@ package cn.hippo4j.console.controller;
 
 import cn.hippo4j.common.constant.Constants;
 import cn.hippo4j.common.model.InstanceInfo;
+import cn.hippo4j.common.model.PoolParameterInfo;
+import cn.hippo4j.common.toolkit.JSONUtil;
 import cn.hippo4j.common.toolkit.StringUtil;
 import cn.hippo4j.common.web.base.Result;
 import cn.hippo4j.common.web.base.Results;
@@ -17,7 +19,9 @@ import cn.hippo4j.console.model.ThreadPoolInstanceInfo;
 import cn.hippo4j.discovery.core.BaseInstanceRegistry;
 import cn.hippo4j.discovery.core.Lease;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.text.StrBuilder;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
@@ -28,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static cn.hippo4j.common.constant.Constants.HTTP_EXECUTE_TIMEOUT;
 import static cn.hippo4j.common.toolkit.ContentUtil.getGroupKey;
 
 /**
@@ -74,8 +79,52 @@ public class ThreadPoolController {
         return Results.success();
     }
 
+    @GetMapping("/run/state/{tpId}")
+    public Result runState(@PathVariable("tpId") String tpId,
+                           @RequestParam(value = "clientAddress") String clientAddress) {
+        String urlString = StrBuilder.create("http://", clientAddress, "/run/state/", tpId).toString();
+        String data = HttpUtil.get(urlString, HTTP_EXECUTE_TIMEOUT);
+        Result result = JSONUtil.parseObject(data, Result.class);
+        return result;
+    }
+
+    @GetMapping("/run/thread/state/{tpId}")
+    public Result runThreadState(@PathVariable("tpId") String tpId,
+                                 @RequestParam(value = "clientAddress") String clientAddress) {
+        String urlString = StrBuilder.create("http://", clientAddress, "/run/thread/state/", tpId).toString();
+        String data = HttpUtil.get(urlString, HTTP_EXECUTE_TIMEOUT);
+        Result result = JSONUtil.parseObject(data, Result.class);
+        return result;
+    }
+
+    @GetMapping("/web/base/info")
+    public Result getPoolBaseState(@RequestParam(value = "clientAddress") String clientAddress) {
+        String urlString = StrBuilder.create("http://", clientAddress, "/web/base/info").toString();
+        String data = HttpUtil.get(urlString, HTTP_EXECUTE_TIMEOUT);
+        Result result = JSONUtil.parseObject(data, Result.class);
+        return result;
+    }
+
+    @GetMapping("/web/run/state")
+    public Result getPoolRunState(@RequestParam(value = "clientAddress") String clientAddress) {
+        String urlString = StrBuilder.create("http://", clientAddress, "/web/run/state").toString();
+        String data = HttpUtil.get(urlString, HTTP_EXECUTE_TIMEOUT);
+        Result result = JSONUtil.parseObject(data, Result.class);
+        return result;
+    }
+
+    @PostMapping("/web/update/pool")
+    public Result<Void> updateWebThreadPool(@RequestParam(value = "clientAddress") String clientAddress,
+                                            @RequestBody PoolParameterInfo poolParameterInfo) {
+        String urlString = StrBuilder.create("http://", clientAddress, "/web/update/pool").toString();
+        String data = HttpUtil.post(urlString, JSONUtil.toJSONString(poolParameterInfo), HTTP_EXECUTE_TIMEOUT);
+        Result result = JSONUtil.parseObject(data, Result.class);
+        return result;
+    }
+
     @GetMapping("/list/instance/{itemId}/{tpId}")
-    public Result<List<ThreadPoolInstanceInfo>> listInstance(@PathVariable("itemId") String itemId, @PathVariable("tpId") String tpId) {
+    public Result<List<ThreadPoolInstanceInfo>> listInstance(@PathVariable("itemId") String itemId,
+                                                             @PathVariable("tpId") String tpId) {
         List<Lease<InstanceInfo>> leases = baseInstanceRegistry.listInstance(itemId);
         Lease<InstanceInfo> first = CollUtil.getFirst(leases);
         if (first == null) {
@@ -86,19 +135,18 @@ public class ThreadPoolController {
         String itemTenantKey = holder.getGroupKey();
         String groupKey = getGroupKey(tpId, itemTenantKey);
         Map<String, CacheItem> content = ConfigCacheService.getContent(groupKey);
-        Map<String, String> activeMap = leases.stream()
-                .map(each -> each.getHolder())
-                .filter(each -> StringUtil.isNotBlank(each.getActive()))
-                .collect(Collectors.toMap(InstanceInfo::getIdentify, InstanceInfo::getActive));
+        Map<String, String> activeMap =
+                leases.stream().map(each -> each.getHolder()).filter(each -> StringUtil.isNotBlank(each.getActive()))
+                        .collect(Collectors.toMap(InstanceInfo::getIdentify, InstanceInfo::getActive));
 
-        Map<String, String> clientBasePathMap = leases.stream()
-                .map(each -> each.getHolder())
+        Map<String, String> clientBasePathMap = leases.stream().map(each -> each.getHolder())
                 .filter(each -> StringUtil.isNotBlank(each.getClientBasePath()))
                 .collect(Collectors.toMap(InstanceInfo::getIdentify, InstanceInfo::getClientBasePath));
 
         List<ThreadPoolInstanceInfo> returnThreadPool = Lists.newArrayList();
         content.forEach((key, val) -> {
-            ThreadPoolInstanceInfo threadPoolInstanceInfo = BeanUtil.convert(val.configAllInfo, ThreadPoolInstanceInfo.class);
+            ThreadPoolInstanceInfo threadPoolInstanceInfo =
+                    BeanUtil.convert(val.configAllInfo, ThreadPoolInstanceInfo.class);
             threadPoolInstanceInfo.setClientAddress(StrUtil.subBefore(key, Constants.IDENTIFY_SLICER_SYMBOL, false));
             threadPoolInstanceInfo.setActive(activeMap.get(key));
             threadPoolInstanceInfo.setIdentify(key);
