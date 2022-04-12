@@ -34,10 +34,12 @@ public class ThreadPoolConfig {
                 .executeTimeOut(800L)
                 .waitForTasksToCompleteOnShutdown(true)
                 .awaitTerminationMillis(5000L)
+                //异步传递trace
                 .taskDecorator(new TaskTraceBuilderHandler())
                 .build();
 
         return customExecutor;
+
     }
 
     @Bean

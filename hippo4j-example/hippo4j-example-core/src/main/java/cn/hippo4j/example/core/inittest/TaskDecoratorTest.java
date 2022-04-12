@@ -1,8 +1,9 @@
 package cn.hippo4j.example.core.inittest;
 
-import cn.hippo4j.example.core.constant.GlobalTestConstant;
-import cn.hippo4j.core.executor.manage.GlobalThreadPoolManage;
 import cn.hippo4j.core.executor.DynamicThreadPoolWrapper;
+import cn.hippo4j.core.executor.manage.GlobalThreadPoolManage;
+import cn.hippo4j.example.core.config.ThreadPoolConfig;
+import cn.hippo4j.example.core.constant.GlobalTestConstant;
 import cn.hutool.core.thread.ThreadUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -27,6 +28,7 @@ public class TaskDecoratorTest {
      * 测试动态线程池传递 {@link TaskDecorator}
      * 如果需要运行此单测, 方法上添加 @PostConstruct
      */
+    //@PostConstruct
     public void taskDecoratorTest() {
         new Thread(() -> {
             MDC.put(PLACEHOLDER, "查看官网: https://www.hippox.cn");

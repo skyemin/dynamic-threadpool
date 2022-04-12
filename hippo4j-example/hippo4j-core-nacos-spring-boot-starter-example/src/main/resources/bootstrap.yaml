@@ -26,7 +26,7 @@ spring:
     nacos:
       config:
         password: nacos
-        server-addr: 127.0.0.1:8848
+        server-addr: 82.157.162.78:8848
         username: nacos
         extension-configs:
           - data-id: hippo4j-nacos.yaml
@@ -35,6 +35,7 @@ spring:
 
   dynamic:
     thread-pool:
+      collect-type: metric
       enable: true
       banner: true
       collect: true
@@ -52,6 +53,25 @@ spring:
       config-file-type: yml
       executors:
         - thread-pool-id: 'message-consume'
+          core-pool-size: 1
+          maximum-pool-size: 1
+          queue-capacity: 1
+          blocking-queue: 'LinkedBlockingQueue'
+          execute-time-out: 1000
+          rejected-handler: 'AbortPolicy'
+          keep-alive-time: 6691
+          allow-core-thread-time-out: true
+          thread-name-prefix: 'message-consume'
+          notify:
+            is-alarm: true
+            active-alarm: 80
+            capacity-alarm: 80
+            interval: 8
+            receives:
+              WECHAT: 'xxx' # Fill in the enterprise weChat userId
+              DING: 'xxx' # phone
+              LARK: 'xxx'
+        - thread-pool-id: 'message-produce'
           core-pool-size: 1
           maximum-pool-size: 1
           queue-capacity: 1

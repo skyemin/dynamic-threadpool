@@ -59,54 +59,64 @@ public class DynamicThreadPoolCoreAutoConfiguration {
 
     private static final String ZK_CONFIG_KEY = "org.apache.curator.framework.CuratorFramework";
 
+    //上下文bean,bean名称hippo4JApplicationContextHolder
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public ApplicationContextHolder hippo4JApplicationContextHolder() {
         return new ApplicationContextHolder();
     }
 
+    //初始化缓存和锁,判断是否要发送预警
     @Bean
     public AlarmControlHandler alarmControlHandler() {
         return new AlarmControlHandler();
     }
 
+    //构建发送预警的参数
     @Bean
     public NotifyConfigBuilder notifyConfigBuilder(AlarmControlHandler alarmControlHandler) {
         return new CoreNotifyConfigBuilder(alarmControlHandler, bootstrapCoreProperties);
     }
 
+    //发送预警
     @Bean
     public HippoSendMessageService hippoSendMessageService(NotifyConfigBuilder notifyConfigBuilder,
                                                            AlarmControlHandler alarmControlHandler) {
         return new HippoBaseSendMessageService(notifyConfigBuilder, alarmControlHandler);
     }
 
+    //判断什么时候预警
     @Bean
     public ThreadPoolNotifyAlarmHandler threadPoolNotifyAlarmHandler(HippoSendMessageService hippoSendMessageService) {
         return new ThreadPoolNotifyAlarmHandler(hippoSendMessageService);
     }
 
+    //学习泛型使用
+    //钉钉发送消息
     @Bean
     public SendMessageHandler dingSendMessageHandler() {
         return new DingSendMessageHandler();
     }
-
+    //飞书发送消息
     @Bean
     public SendMessageHandler larkSendMessageHandler() {
         return new LarkSendMessageHandler();
     }
-
+    //企微发送消息
     @Bean
     public SendMessageHandler weChatSendMessageHandler() {
         return new WeChatSendMessageHandler();
     }
 
+    //动态线程池创建核心
     @Bean
     public DynamicThreadPoolPostProcessor dynamicThreadPoolPostProcessor(ApplicationContextHolder hippo4JApplicationContextHolder) {
         return new DynamicThreadPoolPostProcessor(bootstrapCoreProperties);
     }
 
+    //nacos动态配置dynamicRefresh
     @Bean
+    //存在这个类启用
     @ConditionalOnClass(name = NACOS_CONFIG_KEY)
     @ConditionalOnMissingClass(NACOS_CONFIG_MANAGER_KEY)
     public NacosRefresherHandler nacosRefresherHandler(ThreadPoolNotifyAlarmHandler threadPoolNotifyAlarmHandler) {
@@ -130,17 +140,17 @@ public class DynamicThreadPoolCoreAutoConfiguration {
     public ZookeeperRefresherHandler zookeeperRefresher(ThreadPoolNotifyAlarmHandler threadPoolNotifyAlarmHandler) {
         return new ZookeeperRefresherHandler(threadPoolNotifyAlarmHandler, bootstrapCoreProperties);
     }
-
+    //开启各种监控,实现ThreadPoolMonitor接口
     @Bean
     public DynamicThreadPoolMonitorExecutor hippo4jDynamicThreadPoolMonitorExecutor() {
         return new DynamicThreadPoolMonitorExecutor(bootstrapCoreProperties);
     }
-
+    //监控执行器
     @Bean
     public LogMonitorHandler hippo4jLogMonitorHandler(ThreadPoolRunStateHandler threadPoolRunStateHandler) {
         return new LogMonitorHandler(threadPoolRunStateHandler);
     }
-
+    //监控执行器,promethus统计
     @Bean
     public MetricMonitorHandler hippo4jMetricMonitorHandler(ThreadPoolRunStateHandler threadPoolRunStateHandler) {
         return new MetricMonitorHandler(threadPoolRunStateHandler);

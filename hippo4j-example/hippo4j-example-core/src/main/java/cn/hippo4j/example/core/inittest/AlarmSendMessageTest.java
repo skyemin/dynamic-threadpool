@@ -1,9 +1,9 @@
 package cn.hippo4j.example.core.inittest;
 
+import cn.hippo4j.core.executor.DynamicThreadPoolWrapper;
+import cn.hippo4j.core.executor.manage.GlobalThreadPoolManage;
 import cn.hippo4j.example.core.constant.GlobalTestConstant;
 import cn.hutool.core.thread.ThreadUtil;
-import cn.hippo4j.core.executor.manage.GlobalThreadPoolManage;
-import cn.hippo4j.core.executor.DynamicThreadPoolWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

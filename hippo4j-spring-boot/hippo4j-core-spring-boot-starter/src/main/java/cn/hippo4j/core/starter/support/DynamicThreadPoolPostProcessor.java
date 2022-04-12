@@ -36,11 +36,13 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
 
     private final BootstrapCoreProperties bootstrapCoreProperties;
 
+    //bean初始化方法调用前调用
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) {
         return bean;
     }
 
+    //bean初始化方法调用后调用
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         if (bean instanceof DynamicThreadPoolExecutor) {
@@ -59,7 +61,9 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
                 return bean;
             }
 
+            //对ThreadPoolExecutor做了增强,线程id,执行时间
             DynamicThreadPoolExecutor dynamicExecutor = (DynamicThreadPoolExecutor) bean;
+            //DynamicThreadPoolExecutor包装器
             DynamicThreadPoolWrapper wrap = new DynamicThreadPoolWrapper(dynamicExecutor.getThreadPoolId(), dynamicExecutor);
             ThreadPoolExecutor remoteExecutor = fillPoolAndRegister(wrap);
             return remoteExecutor;
@@ -121,7 +125,9 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
                     dynamicThreadPoolWrap.setInitFlag(Boolean.TRUE);
                 }
             }
-
+            if(executorProperties == null){
+                return null;
+            }
             if (dynamicThreadPoolWrap.getExecutor() instanceof AbstractDynamicExecutorSupport) {
                 // 设置动态线程池增强参数
                 ThreadPoolNotifyAlarm notify = executorProperties.getNotify();

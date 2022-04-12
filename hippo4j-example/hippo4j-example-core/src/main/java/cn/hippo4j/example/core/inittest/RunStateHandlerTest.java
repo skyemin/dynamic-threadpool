@@ -62,6 +62,7 @@ public class RunStateHandlerTest {
                             } else {
                                 Thread.sleep(3000);
                             }
+                            System.out.println(Thread.currentThread().getName()+"开始执行...");
                         } catch (InterruptedException e) {
                             // ignore
                         }
