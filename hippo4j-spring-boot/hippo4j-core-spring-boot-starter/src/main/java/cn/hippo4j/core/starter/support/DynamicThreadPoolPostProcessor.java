@@ -130,7 +130,7 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
             }
             if (dynamicThreadPoolWrap.getExecutor() instanceof AbstractDynamicExecutorSupport) {
                 // 设置动态线程池增强参数
-                ThreadPoolNotifyAlarm notify = executorProperties.getNotify();
+                ThreadPoolNotifyAlarm notify = Optional.ofNullable(executorProperties).map(ExecutorProperties::getNotify).orElse(null);
                 boolean isAlarm = Optional.ofNullable(notify)
                         .map(each -> each.getIsAlarm())
                         .orElseGet(() -> bootstrapCoreProperties.getAlarm() != null ? bootstrapCoreProperties.getAlarm() : true);
@@ -200,5 +200,4 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
 
         return executorProperties;
     }
-
 }
