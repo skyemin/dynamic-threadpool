@@ -119,4 +119,8 @@ public class NotifyCenter {
         return INSTANCE.publisherMap.get(topic);
     }
 
+    public static void main(String[] args) {
+        String wlz = "JYWLZ8a768b87802b154901802b1648ea000b".split("WLZ")[1];
+    }
+
 }

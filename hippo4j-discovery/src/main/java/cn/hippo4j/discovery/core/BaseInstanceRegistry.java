@@ -201,6 +201,7 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
     private final AtomicReference<EvictionTask> evictionTaskRef = new AtomicReference();
 
     public void postInit() {
+        //定时清除过期
         evictionTaskRef.set(new BaseInstanceRegistry.EvictionTask());
         scheduledExecutorService.scheduleWithFixedDelay(evictionTaskRef.get(),
                 EVICTION_INTERVAL_TIMER_IN_MS, EVICTION_INTERVAL_TIMER_IN_MS, TimeUnit.MILLISECONDS);

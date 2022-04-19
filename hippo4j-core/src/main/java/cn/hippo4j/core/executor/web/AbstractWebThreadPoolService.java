@@ -39,6 +39,7 @@ public abstract class AbstractWebThreadPoolService implements WebThreadPoolServi
                 if (executor == null) {
                     ApplicationContext applicationContext = ApplicationContextHolder.getInstance();
                     WebServer webServer = ((WebServerApplicationContext) applicationContext).getWebServer();
+                    //模板方法
                     executor = getWebThreadPoolByServer(webServer);
                 }
             }
