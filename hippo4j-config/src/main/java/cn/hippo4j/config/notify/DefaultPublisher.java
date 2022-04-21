@@ -32,6 +32,7 @@ public class DefaultPublisher extends Thread implements EventPublisher {
 
     protected volatile Long lastEventSequence = -1L;
 
+    //对指定类的volatile字段进行原子更新
     private static final AtomicReferenceFieldUpdater<DefaultPublisher, Long> UPDATER = AtomicReferenceFieldUpdater
             .newUpdater(DefaultPublisher.class, Long.class, "lastEventSequence");
 

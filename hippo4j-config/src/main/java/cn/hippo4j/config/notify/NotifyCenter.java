@@ -21,6 +21,7 @@ import java.util.function.BiFunction;
 @Slf4j
 public class NotifyCenter {
 
+    //饿汉式
     private static final NotifyCenter INSTANCE = new NotifyCenter();
 
     public static int ringBufferSize = 16384;
@@ -120,7 +121,13 @@ public class NotifyCenter {
     }
 
     public static void main(String[] args) {
-        String wlz = "JYWLZ8a768b87802b154901802b1648ea000b".split("WLZ")[1];
+        BiFunction<Integer, Integer, Integer> publisherFactory = null;
+        publisherFactory = (a, b) -> {
+            System.out.println(a);
+            System.out.println(b);
+            return 5;
+        };
+        Integer value = publisherFactory.apply(6, 7);
+        System.out.println(value);
     }
-
 }
