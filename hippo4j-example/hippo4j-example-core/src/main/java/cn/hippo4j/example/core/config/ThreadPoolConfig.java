@@ -1,6 +1,7 @@
 package cn.hippo4j.example.core.config;
 
 import cn.hippo4j.core.executor.DynamicThreadPool;
+import cn.hippo4j.core.executor.support.ResizableCapacityLinkedBlockIngQueue;
 import cn.hippo4j.core.executor.support.ThreadPoolBuilder;
 import cn.hippo4j.example.core.handler.TaskTraceBuilderHandler;
 import cn.hippo4j.example.core.inittest.TaskDecoratorTest;
@@ -9,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static cn.hippo4j.example.core.constant.GlobalTestConstant.MESSAGE_CONSUME;
 import static cn.hippo4j.example.core.constant.GlobalTestConstant.MESSAGE_PRODUCE;
@@ -63,4 +65,20 @@ public class ThreadPoolConfig {
         return produceExecutor;
     }
 
+    @Bean
+    @DynamicThreadPool
+    public ThreadPoolExecutor skyeThreadPool() {
+        String threadPoolId = "skye";
+        ThreadPoolExecutor dynamicExecutor = ThreadPoolBuilder.builder()
+                .threadFactory(threadPoolId)
+                .threadPoolId(threadPoolId)
+                .corePoolSize(1)
+                .maxPoolNum(1)
+                .workQueue(new ResizableCapacityLinkedBlockIngQueue(1024))
+                .rejected(new ThreadPoolExecutor.AbortPolicy())
+                .keepAliveTime(6000, TimeUnit.MILLISECONDS)
+                .dynamicPool()
+                .build();
+        return dynamicExecutor;
+    }
 }

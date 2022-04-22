@@ -4,10 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -72,5 +69,4 @@ public class MapUtil {
             return false;
         }
     }
-
 }
