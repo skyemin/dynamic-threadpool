@@ -2,8 +2,12 @@ package cn.hippo4j.common.web.base;
 
 import lombok.Data;
 import lombok.experimental.Accessors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Result.
@@ -45,5 +49,4 @@ public class Result<T> implements Serializable {
     public boolean isSuccess() {
         return SUCCESS_CODE.equals(code);
     }
-
 }

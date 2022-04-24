@@ -1,11 +1,15 @@
 package cn.hippo4j.common.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 import java.lang.annotation.Annotation;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Application context holder.
@@ -77,4 +81,32 @@ public class ApplicationContextHolder implements ApplicationContextAware {
         return CONTEXT;
     }
 
+    public  void test1() {
+
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        for(int i= 0 ;i<1000 ;i++){
+            int randomNum = (int) (Math.random()*10+1);
+            executorService.execute(new Thread(()->{
+                try {
+                    Thread.sleep(randomNum * 100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                Logger log = LoggerFactory.getLogger(this.getClass());
+                log.info("1000");
+            }));
+        }
+        executorService.shutdown();
+
+       /* try {
+            Thread.currentThread().join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }*/
+    }
+
+    public static void main(String[] args) {
+        ApplicationContextHolder holder = new ApplicationContextHolder();
+        holder.test1();
+    }
 }
