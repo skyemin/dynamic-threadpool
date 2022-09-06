@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package cn.hippo4j.discovery.core;
 
 import cn.hippo4j.common.design.observer.AbstractSubjectCenter;
@@ -26,13 +43,7 @@ import static cn.hippo4j.common.constant.Constants.SCHEDULED_THREAD_CORE_NUM;
 /**
  * Base instance registry.
  *
- * <p>
- * Reference from Eureka.
- * Service registration, service offline, service renewal.
- * </p>
- *
- * @author chen.ma
- * @date 2021/8/8 22:46
+ * <p> Reference from Eureka. Service registration, service offline, service renewal.
  */
 @Slf4j
 @Service
@@ -48,7 +59,6 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
         if (CollectionUtils.isEmpty(appNameLeaseMap)) {
             return Lists.newArrayList();
         }
-
         List<Lease<InstanceInfo>> appNameLeaseList = Lists.newArrayList();
         appNameLeaseMap.values().forEach(each -> appNameLeaseList.add(each));
         return appNameLeaseList;
@@ -64,27 +74,22 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
                 registerMap = registerNewMap;
             }
         }
-
         Lease<InstanceInfo> existingLease = registerMap.get(registrant.getInstanceId());
         if (existingLease != null && (existingLease.getHolder() != null)) {
             Long existingLastDirtyTimestamp = existingLease.getHolder().getLastDirtyTimestamp();
             Long registrationLastDirtyTimestamp = registrant.getLastDirtyTimestamp();
-
             if (existingLastDirtyTimestamp > registrationLastDirtyTimestamp) {
                 registrant = existingLease.getHolder();
             }
         }
-
         Lease<InstanceInfo> lease = new Lease(registrant);
         if (existingLease != null) {
             lease.setServiceUpTimestamp(existingLease.getServiceUpTimestamp());
         }
         registerMap.put(registrant.getInstanceId(), lease);
-
         if (InstanceStatus.UP.equals(registrant.getStatus())) {
             lease.serviceUp();
         }
-
         registrant.setActionType(InstanceInfo.ActionType.ADDED);
         registrant.setLastUpdatedTimestamp();
     }
@@ -93,13 +98,11 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
     public boolean renew(InstanceInfo.InstanceRenew instanceRenew) {
         String appName = instanceRenew.getAppName();
         String instanceId = instanceRenew.getInstanceId();
-
         Map<String, Lease<InstanceInfo>> registryMap = registry.get(appName);
         Lease<InstanceInfo> leaseToRenew;
         if (registryMap == null || (leaseToRenew = registryMap.get(instanceId)) == null) {
             return false;
         }
-
         leaseToRenew.renew();
         return true;
     }
@@ -110,17 +113,15 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
         String instanceId = info.getInstanceId();
         Map<String, Lease<InstanceInfo>> leaseMap = registry.get(appName);
         if (CollectionUtils.isEmpty(leaseMap)) {
-            log.warn("Failed to remove unhealthy node, no application found :: {}", appName);
+            log.warn("Failed to remove unhealthy node, no application found: {}", appName);
             return;
         }
-
         Lease<InstanceInfo> remove = leaseMap.remove(instanceId);
         if (remove == null) {
-            log.warn("Failed to remove unhealthy node, no instance found :: {}", instanceId);
+            log.warn("Failed to remove unhealthy node, no instance found: {}", instanceId);
             return;
         }
-
-        log.info("Remove unhealthy node, node ID :: {}", instanceId);
+        log.info("Remove unhealthy node, node ID: {}", instanceId);
     }
 
     public void evict(long additionalLeaseMs) {
@@ -136,7 +137,6 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
                 }
             }
         }
-
         for (Lease<InstanceInfo> expiredLease : expiredLeases) {
             String appName = expiredLease.getHolder().getAppName();
             String id = expiredLease.getHolder().getInstanceId();
@@ -150,10 +150,8 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
         if (!CollectionUtils.isEmpty(registerMap)) {
             registerMap.remove(id);
             AbstractSubjectCenter.notify(AbstractSubjectCenter.SubjectType.CLEAR_CONFIG_CACHE, () -> identify);
-
-            log.info("Clean up unhealthy nodes. Node id :: {}", id);
+            log.info("Clean up unhealthy nodes. Node id: {}", id);
         }
-
         return true;
     }
 
@@ -178,7 +176,6 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
             if (lastNanos == 0L) {
                 return 0L;
             }
-
             long elapsedMs = TimeUnit.NANOSECONDS.toMillis(currNanos - lastNanos);
             long compensationTime = elapsedMs - EVICTION_INTERVAL_TIMER_IN_MS;
             return compensationTime <= 0L ? 0L : compensationTime;
@@ -195,8 +192,7 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
                     new ThreadFactoryBuilder()
                             .setNameFormat("registry-eviction")
                             .setDaemon(true)
-                            .build()
-            );
+                            .build());
 
     private final AtomicReference<EvictionTask> evictionTaskRef = new AtomicReference();
 
@@ -205,5 +201,4 @@ public class BaseInstanceRegistry implements InstanceRegistry<InstanceInfo> {
         scheduledExecutorService.scheduleWithFixedDelay(evictionTaskRef.get(),
                 EVICTION_INTERVAL_TIMER_IN_MS, EVICTION_INTERVAL_TIMER_IN_MS, TimeUnit.MILLISECONDS);
     }
-
 }

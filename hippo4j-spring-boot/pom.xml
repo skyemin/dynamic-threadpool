@@ -7,16 +7,13 @@
         <artifactId>hippo4j-all</artifactId>
         <version>${revision}</version>
     </parent>
-
     <artifactId>hippo4j-spring-boot</artifactId>
-    <name>${project.artifactId}</name>
-
     <packaging>pom</packaging>
-    <description>Hippo4J Starter List</description>
 
     <modules>
-        <module>hippo4j-core-spring-boot-starter</module>
+        <module>hippo4j-config-spring-boot-starter</module>
         <module>hippo4j-spring-boot-starter</module>
+        <module>hippo4j-spring-boot-starter-adapter</module>
+        <module>hippo4j-spring-boot-starter-monitor</module>
     </modules>
-
 </project>

@@ -34,3 +34,9 @@ build/
 
 # maven plugin ignore
 *.gpg
+.flattened-pom.xml
+
+### Docs ###
+docs/node_modules
+docs/build
+docs/.docusaurus

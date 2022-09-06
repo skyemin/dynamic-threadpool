@@ -1,125 +1,77 @@
-![](https://images-machen.oss-cn-beijing.aliyuncs.com/hippo4j-logo-logoly.png)
+<img align="center" width="400" alt="image" src="https://user-images.githubusercontent.com/77398366/181906454-b46f6a14-7c2c-4b8f-8b0a-40432521bed8.png">
 
-<p>
-  <a href="https://gitee.com/longtai-cn/hippo4j" target="_blank">
-    <img alt="Gitee" src="https://gitee.com/longtai-cn/hippo4j/badge/star.svg?theme=gvp">
-  </a>
-  <a href="https://github.com/longtai-cn/hippo4j" target="_blank">
-    <img alt="GitHub" src="https://img.shields.io/github/stars/longtai-cn/hippo4j?label=Stars&style=flat-square&logo=GitHub">
-  </a>
-  <a href="https://github.com/longtai-cn/hippo4j/blob/develop/LICENSE">
-    <img src="https://img.shields.io/github/license/longtai-cn/hippo4j?color=42b883&style=flat-square" alt="LICENSE">
-  </a>
-  <a title="Hits" target="_blank" href="https://github.com/longtai-cn/hippo4j">
-    <img src="https://hits.b3log.org/acmenlt/dynamic-threadpool.svg">
-  </a>
-</p>
+# 动态可观测线程池框架，提高线上运行保障能力
 
-## Hippo4J
+[![Gitee](https://gitee.com/agentart/hippo4j/badge/star.svg?theme=gvp)](https://gitee.com/agentart/hippo4j) [![GitHub](https://img.shields.io/github/stars/opengoofy/hippo4j)](https://github.com/opengoofy/hippo4j) [![Docker Pulls](https://img.shields.io/docker/pulls/hippo4j/hippo4j-server.svg)](https://store.docker.com/community/images/hippo4j/hippo4j-server) [![Contributors](https://img.shields.io/github/contributors/opengoofy/hippo4j?color=3ba272)](https://github.com/opengoofy/hippo4j/graphs/contributors) [![License](https://img.shields.io/github/license/opengoofy/hippo4j?color=5470c6)](https://github.com/opengoofy/hippo4j/blob/develop/LICENSE)
 
-Hippo4J 基于 **美团动态线程池** 设计理念开发，针对线程池增强 **动态调参、监控、报警功能**。
+-------
 
-通过 Web 控制台对线程池参数进行动态调整，支持 **集群内线程池的差异化配置**。内置线程池参数变更通知，以及 **运行过载报警** 功能（支持多通知平台）。
+## 线程池痛点
 
-按照租户、项目、线程池的维度划分，配合系统权限，让不同的开发、管理人员负责自己系统的线程池。
+线程池是一种基于池化思想管理线程的工具，使用线程池可以减少创建销毁线程的开销，避免线程过多导致系统资源耗尽。在高并发以及大批量的任务处理场景，线程池的使用是必不可少的。
 
-1.1.0 版本发布后，Hippo4J 分为两种使用模式：轻量级依赖配置中心以及无中间件依赖版本。
+如果有在项目中实际使用线程池，相信你可能会遇到以下痛点：
 
-![](https://images-machen.oss-cn-beijing.aliyuncs.com/image-20220319154626314.png)
+- 线程池随便定义，线程资源过多，造成服务器高负载。
 
-### hippo4j-core
+- 线程池参数不易评估，随着业务的并发提升，业务面临出现故障的风险。
+- 线程池任务执行时间超过平均执行周期，开发人员无法感知。
+- 线程池任务堆积，触发拒绝策略，影响既有业务正常运行。
+- 当业务出现超时、熔断等问题时，因为没有监控，无法确定是不是线程池引起。
+- 原生线程池不支持运行时变量的传递，比如 MDC 上下文遇到线程池就 GG。
+- 无法执行优雅关闭，当项目关闭时，大量正在运行的线程池任务被丢弃。
+- 线程池运行中，任务执行停止，怀疑发生死锁或执行耗时操作，但是无从下手。
 
-**轻量级动态线程池管理**，依赖 Apollo、Nacos、Zookeeper 等三方配置中心（任选其一）完成线程池参数动态变更，支持运行时报警、监控等功能。
+## 什么是 Hippo-4J
 
-> 监控功能配置详见：[线程池监控](https://hippo4j.cn/pages/2f67ll)
+Hippo-4J 通过对 JDK 线程池增强，以及扩展三方框架底层线程池等功能，为业务系统提高线上运行保障能力。
 
-![](https://images-machen.oss-cn-beijing.aliyuncs.com/image-202203271737049821.png)
+- 全局管控 - 管理应用线程池实例；
 
-### hippo4j-server
+- 动态变更 - 应用运行时动态变更线程池参数，包括不限于：核心、最大线程数、阻塞队列容量、拒绝策略等；
+- 通知报警 - 内置四种报警通知策略，线程池活跃度、容量水位、拒绝策略以及任务执行时间超长；
+- 运行监控 - 实时查看线程池运行时数据，最近半小时线程池运行数据图表展示；
+- 功能扩展 - 支持线程池任务传递上下文；项目关闭时，支持等待线程池在指定时间内完成任务；
+- 多种模式 - 内置两种使用模式：[依赖配置中心](https://hippo4j.cn/docs/user_docs/getting_started/config/hippo4j-config-start) 和 [无中间件依赖](https://hippo4j.cn/docs/user_docs/getting_started/server/hippo4j-server-start)；
+- 容器管理 - Tomcat、Jetty、Undertow 容器线程池运行时查看和线程数变更；
+- 中间件适配 - Apache RocketMQ、Dubbo、RabbitMQ、Hystrix 消费线程池运行时数据查看和线程数变更。
 
-**部署 hippo4j-server 服务**，通过可视化 Web 界面完成线程池的创建、变更以及查看，不依赖三方中间件。
-
-相比较 hippo4j-core，功能会更强大，但同时也引入了一定的复杂性。需要部署一个 Java 服务，以及依赖 MySQL 数据库。
-
-![](https://images-machen.oss-cn-beijing.aliyuncs.com/1644032018254-min.gif)
-
-### 使用总结
-
-|      | hippo4j-core                                 | hippo4j-server                                              |
-| ---- | ---------------------------------------------------- | ------------------------------------------------------------ |
-| 依赖 | Nacos、Apollo、Zookeeper 等配置中心（任选其一） | 部署 Hippo4J Server（内部无依赖中间件） |
-| 使用 | 配置中心补充线程池相关参数                 | Hippo4J Server Web 控制台添加线程池记录                                                         |
-| 功能 | 包含基础功能：参数动态化、运行时监控、报警等         | 基础功能之外扩展控制台界面、线程池堆栈查看、线程池运行信息实时查看、历史运行信息查看、线程池配置集群个性化等 |
-
-使用建议：根据公司情况选择，如果基本功能可以满足使用，选择 hippo4j-core 使用即可；如果希望更多的功能，可以选择 hippo4j-server。
-
-**两者在进行替换的时候，无需修改业务代码**。
-
-## 解决什么问题
-
-简单来说，Hippo4J 主要为我们解决了下面这些使用原生线程池存在的问题：
-
-- **原生线程池创建时无法合理评估参数问题**。比如功能使用到线程池，遇到突发流量洪峰，频繁拒绝任务。Hippo4J 提供动态修改参数功能，**避免修改线程池参数后重启线上应用**；
-- 当线程池运行过程中无法再接受新的任务，此时你想知道 **线程池内线程都在做什么**？Hippo4J 提供查看线程池堆栈功能；
-- 某接口频繁超时，内部依赖线程池执行，想要 **查看过去一段时间线程池运行参数情况**。Hippo4J 提供历史数据图表查看功能；
-- **原生线程池无任务报警策略**。Hippo4J 内置四种报警策略，分别是：活跃度报警、队列容量报警、拒绝策略报警和运行时间过长报警。
-
-## 报警通知
-
-Hippo4J 已接入钉钉、企业微信以及飞书平台，提供了 **线程池参数变更通知** 和 **运行时报警** 功能。示例如下：
-
-<table>
-  <tr>
-    <td align="center" style="width: 400px;">
-      <a href="https://github.com/longtai-cn">
-        <img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20211203213443242.png" style="width: 400px;"><br>
-        <sub>配置变更</sub>
-      </a><br>
-    </td>
-    <td align="center" style="width: 400px;">
-      <a href="https://github.com/longtai-cn">
-        <img src="https://images-machen.oss-cn-beijing.aliyuncs.com/image-20211203213512019.png" style="width: 400px;"><br>
-        <sub>报警通知</sub>
-      </a><br>
-    </td>
-  </tr>
-</table>
+> 开源作者为爱发电不容易，看完有收获，右上角帮忙点个小星星 🤩
 
 ## 快速开始
 
-[运行 Hippo4J 自带 Demo 参考文档](https://hippo4j.cn/pages/793dcb/)
+对于本地演示目的，请参阅 [Quick start](https://hippo4j.cn/docs/user_docs/user_guide/quick-start)
 
-[在线体验地址](http://console.hippox.cn:6691/index.html) 用户名密码：hippo4j / hippo4j
+演示环境：
+- http://console.hippo4j.cn/index.html
+- 用户名/密码：hippo4j/hippo4j
 
-## 联系我
+## 荣誉墙
 
-对于这个项目，是否有什么不一样看法，同 [作者](https://hippo4j.cn/pages/dd137d/) 或者创建 [Issues](https://github.com/longtai-cn/hippo4j/issues) 沟通。
+Hippo-4J 获得了一些宝贵的荣誉，肯定了 Hippo-4J 作为一款开源框架所带来的价值。
 
-![](https://images-machen.oss-cn-beijing.aliyuncs.com/64E583A0-B1DD-49A3-9AEC-8D246E9D5C12-mini.png)
+<img align="center" width="680" alt="image" src="https://user-images.githubusercontent.com/77398366/187014905-b50bdc8b-ca0e-4137-9a02-1e6b06106191.jpg">
 
-## 公众号
+## 开发者
 
-如果大家想要实时关注 Hippo4J 最新动态以及干货分享的话，可以关注我的公众号。
+Hippo-4J 获得的成就属于每一位对 Hippo-4J 做出过贡献的成员，感谢各位的付出。
 
-![](https://images-machen.oss-cn-beijing.aliyuncs.com/43_65f6020ed111b6bb3808ec338576bd6b.png)
+如果屏幕前的同学有意提交 Hippo-4J，请参考 [good first issue](https://github.com/opengoofy/hippo4j/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) 或者 [good pro issue](https://github.com/opengoofy/hippo4j/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+pro+issue%22) 任务列表。
 
-## Stars 趋势
-
-[![Stargazers over time](https://starchart.cc/longtai-cn/hippo4j.svg)](https://starchart.cc/longtai-cn/hippo4j)
+<a href="https://github.com/opengoofy/hippo4j/graphs/contributors"><img src="https://opencollective.com/hippo4j/contributors.svg?width=890&button=false" /></a>
 
 ## 友情链接
 
-- [**JavaGuide**](https://github.com/Snailclimb/JavaGuide)：「Java学习+面试指南」一份涵盖大部分 Java 程序员所需要掌握的核心知识。准备 Java 面试，首选 JavaGuide！
-- [**Guide-Rpc-Framework**](https://github.com/Snailclimb/guide-rpc-framework)：A custom RPC framework implemented by Netty+Kyro+Zookeeper.（一款基于 Netty+Kyro+Zookeeper 实现的自定义 RPC 框架-附详细实现过程和相关教程。）
-- [**toBeBetterJavaer**](https://github.com/itwanger/toBeBetterJavaer)：Java 程序员进阶之路，据说每一个优秀的 Java 程序员都喜欢她，风趣幽默、通俗易懂。内容包括 Java 基础、Java 并发编程、Java 虚拟机、Java 企业级开发、Java 面试等核心知识点
-- [**Austin**](https://github.com/ZhongFuCheng3y/austin)：消息推送平台📝 推送下发【邮件】【短信】【微信服务号】【微信小程序】等消息类型。所使用的技术栈包括：SpringBoot、SpringDataJPA、MySQL、Docker、docker-compose、Kafka、Redis、Apollo、prometheus、Grafana、GrayLog、Flink、Xxl-job、Echarts等等
+- [[ Sa-Token ]](https://github.com/dromara/sa-token)：一个轻量级 java 权限认证框架，让鉴权变得简单、优雅！   
 
-## 鸣谢
+- [[ HertzBeat ]](https://github.com/dromara/hertzbeat)：易用友好的云监控系统, 无需 Agent, 强大自定义监控能力。   
 
-Hippo4J 项目基于或参考以下项目：[**Nacos**](https://github.com/alibaba/nacos)、[**Eureka**](https://github.com/Netflix/Eureka)、[**Mzt-Biz-Log**](https://github.com/mouzt/mzt-biz-log)、[**Equator**](https://github.com/dadiyang/equator)。
+- [[ JavaGuide ]](https://github.com/Snailclimb/JavaGuide)：一份涵盖大部分 Java 程序员所需要掌握的核心知识。
 
-感谢 JetBrains 提供的免费开源 License：
+- [[ toBeBetterJavaer ]](https://github.com/itwanger/toBeBetterJavaer)：一份通俗易懂、风趣幽默的 Java 学习指南。
 
-<p>
-    <img src="https://images.gitee.com/uploads/images/2020/0406/220236_f5275c90_5531506.png" alt="图片引用自lets-mica" style="float:left;">
-</p>
+## 联系我
+
+![image](https://user-images.githubusercontent.com/77398366/185774220-c11951f9-e130-4d60-8204-afb5c51d4401.png)
+
+扫码添加微信，备注：hippo4j，邀您加入群聊。若图片加载不出来，访问 [官网站点](https://hippo4j.cn/docs/user_docs/other/group)

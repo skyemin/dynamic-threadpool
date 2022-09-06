@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package cn.hippo4j.config.service;
 
 import cn.hippo4j.common.config.ApplicationContextHolder;
@@ -5,6 +22,7 @@ import cn.hippo4j.common.constant.Constants;
 import cn.hippo4j.common.design.observer.AbstractSubjectCenter;
 import cn.hippo4j.common.design.observer.Observer;
 import cn.hippo4j.common.design.observer.ObserverMessage;
+import cn.hippo4j.common.toolkit.CollectionUtil;
 import cn.hippo4j.common.toolkit.JSONUtil;
 import cn.hippo4j.common.toolkit.Md5Util;
 import cn.hippo4j.config.event.LocalDataChangeEvent;
@@ -15,22 +33,21 @@ import cn.hippo4j.config.service.biz.ConfigService;
 import cn.hippo4j.config.toolkit.MapUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static cn.hippo4j.common.constant.Constants.GROUP_KEY_DELIMITER;
+import static cn.hippo4j.common.constant.Constants.GROUP_KEY_DELIMITER_TRANSLATION;
+
 /**
  * Config cache service.
- *
- * @author chen.ma
- * @date 2021/6/24 21:19
  */
 @Slf4j
 public class ConfigCacheService {
@@ -42,8 +59,6 @@ public class ConfigCacheService {
     }
 
     /**
-     * TODO: 数据结构、客户端停机时 remove 操作待重构
-     * <p>
      * key: message-produce+dynamic-threadpool-example+prescription+192.168.20.227:8088_xxx
      * val:
      * key: 192.168.20.227:8088_xxx
@@ -65,23 +80,20 @@ public class ConfigCacheService {
      */
     private synchronized static String getContentMd5IsNullPut(String groupKey, String clientIdentify) {
         Map<String, CacheItem> cacheItemMap = Optional.ofNullable(CLIENT_CONFIG_CACHE.get(groupKey)).orElse(Maps.newHashMap());
-
         CacheItem cacheItem = null;
         if (CollUtil.isNotEmpty(cacheItemMap) && (cacheItem = cacheItemMap.get(clientIdentify)) != null) {
             return cacheItem.md5;
         }
-
         if (CONFIG_SERVICE == null) {
             CONFIG_SERVICE = ApplicationContextHolder.getBean(ConfigService.class);
         }
-        String[] params = groupKey.split("\\+");
+        String[] params = groupKey.split(GROUP_KEY_DELIMITER_TRANSLATION);
         ConfigAllInfo config = CONFIG_SERVICE.findConfigRecentInfo(params);
         if (config != null && StrUtil.isNotBlank(config.getTpId())) {
             cacheItem = new CacheItem(groupKey, config);
             cacheItemMap.put(clientIdentify, cacheItem);
             CLIENT_CONFIG_CACHE.put(groupKey, cacheItemMap);
         }
-
         return (cacheItem != null) ? cacheItem.md5 : Constants.NULL;
     }
 
@@ -89,14 +101,12 @@ public class ConfigCacheService {
         if (CONFIG_SERVICE == null) {
             CONFIG_SERVICE = ApplicationContextHolder.getBean(ConfigService.class);
         }
-
-        String[] params = groupKey.split("\\+");
+        String[] params = groupKey.split(GROUP_KEY_DELIMITER_TRANSLATION);
         ConfigAllInfo config = CONFIG_SERVICE.findConfigRecentInfo(params);
         if (config == null || StringUtils.isEmpty(config.getTpId())) {
-            String errorMessage = String.format("config is null. tpId :: %s, itemId :: %s, tenantId :: %s", params[0], params[1], params[2]);
+            String errorMessage = String.format("config is null. tpId: %s, itemId: %s, tenantId: %s", params[0], params[1], params[2]);
             throw new RuntimeException(errorMessage);
         }
-
         return Md5Util.getTpContentMd5(config);
     }
 
@@ -104,7 +114,7 @@ public class ConfigCacheService {
         CacheItem cache = makeSure(groupKey, identify);
         if (cache.md5 == null || !cache.md5.equals(md5)) {
             cache.md5 = md5;
-            String[] params = groupKey.split("\\+");
+            String[] params = groupKey.split(GROUP_KEY_DELIMITER_TRANSLATION);
             ConfigAllInfo config = CONFIG_SERVICE.findConfigRecentInfo(params);
             cache.configAllInfo = config;
             cache.lastModifiedTs = System.currentTimeMillis();
@@ -118,12 +128,10 @@ public class ConfigCacheService {
         if (ipCacheItemMap != null && (item = ipCacheItemMap.get(ip)) != null) {
             return item;
         }
-
         CacheItem tmp = new CacheItem(groupKey);
         Map<String, CacheItem> cacheItemMap = Maps.newHashMap();
         cacheItemMap.put(ip, tmp);
         CLIENT_CONFIG_CACHE.putIfAbsent(groupKey, cacheItemMap);
-
         return tmp;
     }
 
@@ -140,26 +148,37 @@ public class ConfigCacheService {
         return total.get();
     }
 
+    public static List<String> getIdentifyList(String tenantId, String itemId, String threadPoolId) {
+        List<String> identifyList = null;
+        String buildKey = Joiner.on(GROUP_KEY_DELIMITER).join(Lists.newArrayList(threadPoolId, itemId, tenantId));
+        List<String> keys = MapUtil.parseMapForFilter(CLIENT_CONFIG_CACHE, buildKey);
+        if (CollectionUtil.isNotEmpty(keys)) {
+            identifyList = new ArrayList(keys.size());
+            for (String each : keys) {
+                String[] keyArray = each.split(GROUP_KEY_DELIMITER_TRANSLATION);
+                if (keyArray != null && keyArray.length > 2) {
+                    identifyList.add(keyArray[3]);
+                }
+            }
+        }
+        return identifyList;
+    }
+
     /**
      * Remove config cache.
      *
-     * @param groupKey 租户 + 项目 + IP
+     * @param groupKey tenant + item + IP
      */
     public static void removeConfigCache(String groupKey) {
         coarseRemove(groupKey);
     }
 
-    /**
-     * Coarse remove.
-     *
-     * @param coarse
-     */
     private synchronized static void coarseRemove(String coarse) {
-        // 模糊搜索
+        // fuzzy search
         List<String> identificationList = MapUtil.parseMapForFilter(CLIENT_CONFIG_CACHE, coarse);
         for (String cacheMapKey : identificationList) {
             Map<String, CacheItem> removeCacheItem = CLIENT_CONFIG_CACHE.remove(cacheMapKey);
-            log.info("Remove invalidated config cache. config info :: {}", JSONUtil.toJSONString(removeCacheItem));
+            log.info("Remove invalidated config cache. config info: {}", JSONUtil.toJSONString(removeCacheItem));
         }
     }
 
@@ -170,10 +189,8 @@ public class ConfigCacheService {
 
         @Override
         public void accept(ObserverMessage<String> observerMessage) {
-            log.info("Clean up the configuration cache. Key :: {}", observerMessage.message());
+            log.info("Clean up the configuration cache. Key: {}", observerMessage.message());
             coarseRemove(observerMessage.message());
         }
-
     }
-
 }

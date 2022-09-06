@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package cn.hippo4j.core.toolkit.inet;
 
 import cn.hippo4j.core.executor.support.ThreadPoolBuilder;
@@ -19,9 +36,6 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Inet utils.
- *
- * @author Spencer Gibb
- * @date 2021/11/12 21:33
  */
 public class InetUtils implements Closeable {
 
@@ -44,7 +58,7 @@ public class InetUtils implements Closeable {
         this.executorService.shutdown();
     }
 
-    public HostInfo findFirstNonLoopbackHostInfo() {
+    public HostInfo findFirstNonLoopBackHostInfo() {
         InetAddress address = findFirstNonLoopbackAddress();
         if (address != null) {
             return convertAddress(address);
@@ -60,7 +74,7 @@ public class InetUtils implements Closeable {
         try {
             int lowest = Integer.MAX_VALUE;
             for (Enumeration<NetworkInterface> nics = NetworkInterface
-                    .getNetworkInterfaces(); nics.hasMoreElements(); ) {
+                    .getNetworkInterfaces(); nics.hasMoreElements();) {
                 NetworkInterface ifc = nics.nextElement();
                 if (ifc.isUp()) {
                     this.log.trace("Testing interface: " + ifc.getDisplayName());
@@ -69,7 +83,6 @@ public class InetUtils implements Closeable {
                     } else if (result != null) {
                         continue;
                     }
-
                     // @formatter:off
                     if (!ignoreInterface(ifc.getDisplayName())) {
                         for (Enumeration<InetAddress> addrs = ifc
@@ -90,22 +103,18 @@ public class InetUtils implements Closeable {
         } catch (IOException ex) {
             this.log.error("Cannot get first non-loopback address", ex);
         }
-
         if (result != null) {
             return result;
         }
-
         try {
             return InetAddress.getLocalHost();
         } catch (UnknownHostException e) {
             this.log.warn("Unable to retrieve localhost");
         }
-
         return null;
     }
 
     boolean isPreferredAddress(InetAddress address) {
-
         if (this.properties.isUseOnlySiteLocalInterfaces()) {
             final boolean siteLocalAddress = address.isSiteLocalAddress();
             if (!siteLocalAddress) {
@@ -211,7 +220,5 @@ public class InetUtils implements Closeable {
         public void setHostname(String hostname) {
             this.hostname = hostname;
         }
-
     }
-
 }

@@ -1,8 +1,26 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package cn.hippo4j.core.executor;
 
 import cn.hippo4j.common.config.ApplicationContextHolder;
 import cn.hippo4j.core.executor.support.AbstractDynamicExecutorSupport;
 import cn.hippo4j.core.proxy.RejectedProxyUtil;
+import cn.hippo4j.core.toolkit.SystemClock;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
@@ -12,10 +30,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Dynamic threadPool wrap.
- *
- * @author chen.ma
- * @date 2021/7/8 21:47
+ * Enhanced dynamic and monitored thread pool.
  */
 public class DynamicThreadPoolExecutor extends AbstractDynamicExecutorSupport {
 
@@ -37,7 +52,7 @@ public class DynamicThreadPoolExecutor extends AbstractDynamicExecutorSupport {
     @Getter
     private final AtomicLong rejectCount = new AtomicLong();
 
-    private final ThreadLocal<Long> startTime = new ThreadLocal();
+    private final ThreadLocal<Long> startTimeThreadLocal = new ThreadLocal<>();
 
     public DynamicThreadPoolExecutor(int corePoolSize,
                                      int maximumPoolSize,
@@ -46,20 +61,18 @@ public class DynamicThreadPoolExecutor extends AbstractDynamicExecutorSupport {
                                      long executeTimeOut,
                                      boolean waitForTasksToCompleteOnShutdown,
                                      long awaitTerminationMillis,
-                                     @NonNull BlockingQueue<Runnable> workQueue,
+                                     @NonNull BlockingQueue<Runnable> blockingQueue,
                                      @NonNull String threadPoolId,
                                      @NonNull ThreadFactory threadFactory,
-                                     @NonNull RejectedExecutionHandler handler) {
-        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, waitForTasksToCompleteOnShutdown, awaitTerminationMillis, workQueue, threadPoolId, threadFactory, handler);
+                                     @NonNull RejectedExecutionHandler rejectedExecutionHandler) {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, waitForTasksToCompleteOnShutdown, awaitTerminationMillis, blockingQueue, threadPoolId, threadFactory, rejectedExecutionHandler);
         this.threadPoolId = threadPoolId;
         this.executeTimeOut = executeTimeOut;
-
         // Number of dynamic proxy denial policies.
-        RejectedExecutionHandler rejectedProxy = RejectedProxyUtil.createProxy(handler, threadPoolId, rejectCount);
+        RejectedExecutionHandler rejectedProxy = RejectedProxyUtil.createProxy(rejectedExecutionHandler, threadPoolId, rejectCount);
         setRejectedExecutionHandler(rejectedProxy);
-
         // Redundant fields to avoid reflecting the acquired fields when sending change information.
-        redundancyHandler = handler;
+        redundancyHandler = rejectedExecutionHandler;
     }
 
     @Override
@@ -67,7 +80,6 @@ public class DynamicThreadPoolExecutor extends AbstractDynamicExecutorSupport {
         if (taskDecorator != null) {
             command = taskDecorator.decorate(command);
         }
-
         super.execute(command);
     }
 
@@ -76,19 +88,17 @@ public class DynamicThreadPoolExecutor extends AbstractDynamicExecutorSupport {
         if (executeTimeOut == null || executeTimeOut <= 0) {
             return;
         }
-
-        this.startTime.set(System.currentTimeMillis());
+        startTimeThreadLocal.set(SystemClock.now());
     }
 
     @Override
     protected void afterExecute(Runnable r, Throwable t) {
-        if (executeTimeOut == null || executeTimeOut <= 0) {
+        Long startTime;
+        if ((startTime = startTimeThreadLocal.get()) == null) {
             return;
         }
-
         try {
-            long startTime = this.startTime.get();
-            long endTime = System.currentTimeMillis();
+            long endTime = SystemClock.now();
             long executeTime;
             boolean executeTimeAlarm = (executeTime = (endTime - startTime)) > executeTimeOut;
             if (executeTimeAlarm && ApplicationContextHolder.getInstance() != null) {
@@ -98,7 +108,7 @@ public class DynamicThreadPoolExecutor extends AbstractDynamicExecutorSupport {
                 }
             }
         } finally {
-            this.startTime.remove();
+            startTimeThreadLocal.remove();
         }
     }
 
@@ -107,13 +117,7 @@ public class DynamicThreadPoolExecutor extends AbstractDynamicExecutorSupport {
         return this;
     }
 
-    /**
-     * Get reject count.
-     *
-     * @return
-     */
     public Long getRejectCountNum() {
         return rejectCount.get();
     }
-
 }

@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package cn.hippo4j.core.executor.state;
 
 import cn.hutool.core.util.ReflectUtil;
@@ -10,9 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * ThreadPool status handler.
- *
- * @author chen.ma
- * @date 2022/1/18 20:54
  */
 @Slf4j
 public class ThreadPoolStatusHandler {
@@ -36,14 +50,12 @@ public class ThreadPoolStatusHandler {
             try {
                 Method runStateLessThan = ReflectUtil.getMethodByName(ThreadPoolExecutor.class, "runStateLessThan");
                 cn.hippo4j.common.toolkit.ReflectUtil.setAccessible(runStateLessThan);
-
                 AtomicInteger ctl = (AtomicInteger) ReflectUtil.getFieldValue(executor, "ctl");
                 int shutdown = (int) ReflectUtil.getFieldValue(executor, "SHUTDOWN");
                 boolean runStateLessThanBool = ReflectUtil.invoke(executor, runStateLessThan, ctl.get(), shutdown);
                 if (runStateLessThanBool) {
                     return RUNNING;
                 }
-
                 Method runStateAtLeast = ReflectUtil.getMethodByName(ThreadPoolExecutor.class, "runStateAtLeast");
                 cn.hippo4j.common.toolkit.ReflectUtil.setAccessible(runStateAtLeast);
                 int terminated = (int) ReflectUtil.getFieldValue(executor, "TERMINATED");
@@ -51,12 +63,9 @@ public class ThreadPoolStatusHandler {
                 return resultStatus;
             } catch (Exception ex) {
                 log.error("Failed to get thread pool status.", ex);
-
                 EXCEPTION_FLAG.set(Boolean.FALSE);
             }
         }
-
         return "UNKNOWN";
     }
-
 }

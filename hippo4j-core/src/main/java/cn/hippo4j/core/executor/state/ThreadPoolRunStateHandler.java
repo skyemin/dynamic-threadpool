@@ -1,7 +1,24 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package cn.hippo4j.core.executor.state;
 
-import cn.hippo4j.common.model.ManyPoolRunStateInfo;
-import cn.hippo4j.common.model.PoolRunStateInfo;
+import cn.hippo4j.common.model.ManyThreadPoolRunStateInfo;
+import cn.hippo4j.common.model.ThreadPoolRunStateInfo;
 import cn.hippo4j.common.toolkit.ByteConvertUtil;
 import cn.hippo4j.core.executor.DynamicThreadPoolExecutor;
 import cn.hippo4j.core.executor.DynamicThreadPoolWrapper;
@@ -21,9 +38,6 @@ import static cn.hippo4j.core.toolkit.IdentifyUtil.CLIENT_IDENTIFICATION_VALUE;
 
 /**
  * Thread pool run state service.
- *
- * @author chen.ma
- * @date 2021/7/12 21:25
  */
 @Slf4j
 @AllArgsConstructor
@@ -34,28 +48,22 @@ public class ThreadPoolRunStateHandler extends AbstractThreadPoolRuntime {
     private final ConfigurableEnvironment environment;
 
     @Override
-    protected PoolRunStateInfo supplement(PoolRunStateInfo poolRunStateInfo) {
-        // 内存占比: 使用内存 / 最大内存
+    public ThreadPoolRunStateInfo supplement(ThreadPoolRunStateInfo poolRunStateInfo) {
         RuntimeInfo runtimeInfo = new RuntimeInfo();
         String memoryProportion = StrUtil.builder(
                 "已分配: ",
                 ByteConvertUtil.getPrintSize(runtimeInfo.getTotalMemory()),
                 " / 最大可用: ",
-                ByteConvertUtil.getPrintSize(runtimeInfo.getMaxMemory())
-        ).toString();
-
+                ByteConvertUtil.getPrintSize(runtimeInfo.getMaxMemory())).toString();
         poolRunStateInfo.setCurrentLoad(poolRunStateInfo.getCurrentLoad() + "%");
         poolRunStateInfo.setPeakLoad(poolRunStateInfo.getPeakLoad() + "%");
-
-        String ipAddress = hippo4JInetUtils.findFirstNonLoopbackHostInfo().getIpAddress();
+        String ipAddress = hippo4JInetUtils.findFirstNonLoopBackHostInfo().getIpAddress();
         poolRunStateInfo.setHost(ipAddress);
         poolRunStateInfo.setMemoryProportion(memoryProportion);
         poolRunStateInfo.setFreeMemory(ByteConvertUtil.getPrintSize(runtimeInfo.getFreeMemory()));
-
         String threadPoolId = poolRunStateInfo.getTpId();
         DynamicThreadPoolWrapper executorService = GlobalThreadPoolManage.getExecutorService(threadPoolId);
         ThreadPoolExecutor pool = executorService.getExecutor();
-
         String rejectedName;
         if (pool instanceof AbstractDynamicExecutorSupport) {
             rejectedName = ((DynamicThreadPoolExecutor) pool).getRedundancyHandler().getClass().getSimpleName();
@@ -63,17 +71,12 @@ public class ThreadPoolRunStateHandler extends AbstractThreadPoolRuntime {
             rejectedName = pool.getRejectedExecutionHandler().getClass().getSimpleName();
         }
         poolRunStateInfo.setRejectedName(rejectedName);
-
-        ManyPoolRunStateInfo manyPoolRunStateInfo = BeanUtil.toBean(poolRunStateInfo, ManyPoolRunStateInfo.class);
-        manyPoolRunStateInfo.setIdentify(CLIENT_IDENTIFICATION_VALUE);
-
+        ManyThreadPoolRunStateInfo manyThreadPoolRunStateInfo = BeanUtil.toBean(poolRunStateInfo, ManyThreadPoolRunStateInfo.class);
+        manyThreadPoolRunStateInfo.setIdentify(CLIENT_IDENTIFICATION_VALUE);
         String active = environment.getProperty("spring.profiles.active", "UNKNOWN");
-        manyPoolRunStateInfo.setActive(active.toUpperCase());
-
+        manyThreadPoolRunStateInfo.setActive(active.toUpperCase());
         String threadPoolState = ThreadPoolStatusHandler.getThreadPoolState(pool);
-        manyPoolRunStateInfo.setState(threadPoolState);
-
-        return manyPoolRunStateInfo;
+        manyThreadPoolRunStateInfo.setState(threadPoolState);
+        return manyThreadPoolRunStateInfo;
     }
-
 }

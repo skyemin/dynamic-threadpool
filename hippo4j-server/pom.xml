@@ -2,37 +2,29 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
     <parent>
         <groupId>cn.hippo4j</groupId>
         <artifactId>hippo4j-all</artifactId>
         <version>${revision}</version>
     </parent>
-
     <artifactId>hippo4j-server</artifactId>
-    <packaging>jar</packaging>
-
-    <name>${project.artifactId}</name>
-    <description>${project.artifactId}</description>
 
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>cn.hippo4j</groupId>
-            <artifactId>hippo4j-config</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>cn.hippo4j</groupId>
             <artifactId>hippo4j-console</artifactId>
+            <version>${revision}</version>
         </dependency>
 
         <dependency>
             <groupId>cn.hippo4j</groupId>
             <artifactId>hippo4j-discovery</artifactId>
+            <version>${revision}</version>
         </dependency>
 
         <!-- Adapter start -->
@@ -60,7 +52,6 @@
             <version>1.1.1</version>
         </dependency>
         <!-- Adapter end -->
-
     </dependencies>
 
     <build>
@@ -80,7 +71,6 @@
                     </archive>
                 </configuration>
             </plugin>
-
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -92,7 +82,23 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- docker -->
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>1.2.2</version>
+                <configuration>
+                    <imageName>${project.artifactId}:${project.version}</imageName>
+                    <dockerDirectory>${project.basedir}</dockerDirectory>
+                    <resources>
+                        <resource>
+                            <targetPath>/</targetPath>
+                            <directory>${project.build.directory}</directory>
+                            <include>${project.build.finalName}.jar</include>
+                        </resource>
+                    </resources>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
-
 </project>
